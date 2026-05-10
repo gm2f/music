@@ -1,6 +1,32 @@
 const play = require('play-dl');
 const { joinVoiceChannel } = require('@discordjs/voice');
 const { MusicQueue } = require('../utils/queue');
+const { spawn } = require('child_process');
+
+const YTDLP_ARGS = ['--extractor-args', 'youtube:player_client=android', '-q', '--no-warnings'];
+
+function ytdlpSearch(query) {
+    return new Promise((resolve, reject) => {
+        const proc = spawn('python3', [
+            '-m', 'yt_dlp',
+            ...YTDLP_ARGS,
+            '--dump-json',
+            `ytsearch1:${query}`,
+        ], { stdio: ['ignore', 'pipe', 'ignore'] });
+
+        let output = '';
+        proc.stdout.on('data', d => output += d);
+        proc.on('close', () => {
+            if (output) {
+                try { resolve(JSON.parse(output)); }
+                catch (e) { resolve(null); }
+            } else {
+                resolve(null);
+            }
+        });
+        proc.on('error', () => resolve(null));
+    });
+}
 
 module.exports = {
     name: 'play',
@@ -31,12 +57,12 @@ module.exports = {
                 ? `https://www.youtube.com/watch?v=${videoId}`
                 : query;
         } else {
-            // Treat as a search query
-            const results = await play.search(query, { limit: 1 });
-            if (!results || results.length === 0) {
+            // Search using yt-dlp (android client bypasses bot detection)
+            const result = await ytdlpSearch(query);
+            if (!result) {
                 return interaction.editReply('❌ No results found for that search!');
             }
-            songUrl = results[0].url;
+            songUrl = result.webpage_url;
         }
 
         if (!queue) {
