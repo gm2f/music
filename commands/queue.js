@@ -1,20 +1,18 @@
-const queues = new Map();
-
 module.exports = {
     name: 'queue',
     description: 'Display the current music queue',
     async execute(interaction) {
-        const queue = queues.get(interaction.guildId);
-        
+        const queue = interaction.client.queues.get(interaction.guildId);
+
         if (!queue || queue.songs.length === 0) {
             return interaction.reply('📭 The queue is empty! Use `/play` to add some songs.');
         }
-        
+
         const currentSong = queue.currentSong;
         const upcomingSongs = queue.songs.slice(1, 11);
-        
+
         let queueList = `**Now Playing:**\n🎵 ${currentSong?.title || 'None'}\n\n`;
-        
+
         if (upcomingSongs.length > 0) {
             queueList += `**Up Next (${queue.songs.length - 1} songs):**\n`;
             upcomingSongs.forEach((song, index) => {
@@ -23,11 +21,11 @@ module.exports = {
         } else {
             queueList += 'No more songs in queue.';
         }
-        
+
         if (queue.songs.length > 11) {
             queueList += `\n\nAnd ${queue.songs.length - 11} more songs...`;
         }
-        
+
         const embed = {
             color: 0x00ff00,
             title: '🎵 Music Queue',
@@ -37,7 +35,7 @@ module.exports = {
             },
             timestamp: new Date()
         };
-        
+
         interaction.reply({ embeds: [embed] });
     },
 };

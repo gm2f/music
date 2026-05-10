@@ -1,6 +1,6 @@
 module.exports = {
-    name: 'pause',
-    description: 'Pause the current song',
+    name: 'stop',
+    description: 'Stop playing and clear the queue',
     async execute(interaction) {
         const queue = interaction.client.queues.get(interaction.guildId);
 
@@ -9,19 +9,17 @@ module.exports = {
         }
 
         if (!interaction.member.voice.channel) {
-            return interaction.reply('❌ You need to be in a voice channel to pause music!');
+            return interaction.reply('❌ You need to be in a voice channel to stop music!');
         }
 
         const botVoiceChannel = interaction.guild.members.me.voice.channel;
         if (!botVoiceChannel || botVoiceChannel.id !== interaction.member.voice.channel.id) {
-            return interaction.reply('❌ You need to be in the same voice channel as the bot to pause!');
+            return interaction.reply('❌ You need to be in the same voice channel as the bot to stop!');
         }
 
-        const paused = queue.pause();
-        if (paused) {
-            interaction.reply('⏸️ Music paused! Use `/resume` to continue.');
-        } else {
-            interaction.reply('⚠️ Music is already paused!');
-        }
+        queue.stop();
+        interaction.client.queues.delete(interaction.guildId);
+
+        interaction.reply('⏹️ Music stopped and queue cleared!');
     },
 };
