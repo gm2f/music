@@ -1,6 +1,30 @@
 const { createAudioPlayer, createAudioResource, AudioPlayerStatus, StreamType } = require('@discordjs/voice');
-const play = require('play-dl');
 const { spawn } = require('child_process');
+
+const YTDLP_ARGS = ['--extractor-args', 'youtube:player_client=android', '-q', '--no-warnings'];
+
+function ytdlpInfo(url) {
+    return new Promise((resolve, reject) => {
+        const proc = spawn('python3', [
+            '-m', 'yt_dlp',
+            ...YTDLP_ARGS,
+            '--dump-json',
+            url,
+        ], { stdio: ['ignore', 'pipe', 'ignore'] });
+
+        let output = '';
+        proc.stdout.on('data', d => output += d);
+        proc.on('close', code => {
+            if (output) {
+                try { resolve(JSON.parse(output)); }
+                catch (e) { reject(e); }
+            } else {
+                reject(new Error(`yt-dlp info failed (code ${code})`));
+            }
+        });
+        proc.on('error', reject);
+    });
+}
 
 class MusicQueue {
     constructor(guildId, voiceChannel, textChannel) {
@@ -51,9 +75,9 @@ class MusicQueue {
 
     async addSong(song) {
         try {
-            const info = await play.video_info(song.url);
-            song.title = info.video_details.title;
-            song.duration = info.video_details.durationInSec;
+            const info = await ytdlpInfo(song.url);
+            song.title = info.title;
+            song.duration = info.duration;
         } catch (err) {
             console.error('Error fetching song info:', err.message);
             song.title = song.url;
@@ -72,17 +96,14 @@ class MusicQueue {
 
         console.log(`🎵 Starting playback: ${song.title || song.url}`);
 
-        // yt-dlp downloads the best audio and writes to stdout
         const ytdlp = spawn('python3', [
             '-m', 'yt_dlp',
+            ...YTDLP_ARGS,
             '-f', 'bestaudio',
-            '-q',
-            '--no-warnings',
             '-o', '-',
             song.url,
         ], { stdio: ['ignore', 'pipe', 'ignore'] });
 
-        // ffmpeg transcodes to Ogg Opus — more reliable framing than raw PCM
         const ffmpegProcess = spawn('ffmpeg', [
             '-i', 'pipe:0',
             '-c:a', 'libopus',
@@ -94,8 +115,6 @@ class MusicQueue {
         ], { stdio: ['pipe', 'pipe', 'ignore'] });
 
         ytdlp.stdout.pipe(ffmpegProcess.stdin);
-
-        // Suppress EPIPE errors from early termination (skip/stop)
         ytdlp.stdout.on('error', () => {});
         ffmpegProcess.stdin.on('error', () => {});
 
