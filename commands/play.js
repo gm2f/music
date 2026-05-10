@@ -1,4 +1,4 @@
-const ytdl = require('ytdl-core');
+const play = require('play-dl');
 const { joinVoiceChannel } = require('@discordjs/voice');
 const { MusicQueue } = require('../utils/queue');
 
@@ -15,12 +15,29 @@ module.exports = {
             return interaction.editReply('❌ You need to be in a voice channel to play music!');
         }
 
-        if (!ytdl.validateURL(query)) {
-            return interaction.editReply('❌ Please provide a valid YouTube URL!');
-        }
-
         const queues = interaction.client.queues;
         let queue = queues.get(interaction.guildId);
+
+        // Resolve URL — handle direct URLs, playlist-tagged URLs, and search queries
+        let songUrl;
+        const validation = play.yt_validate(query);
+
+        if (validation === 'video' || validation === 'playlist') {
+            // Normalize to full URL — handles youtu.be, ?v=xxx&list=yyy, etc.
+            const shortMatch = query.match(/youtu\.be\/([^?&]+)/);
+            const longMatch = query.match(/[?&]v=([^&]+)/);
+            const videoId = shortMatch?.[1] ?? longMatch?.[1];
+            songUrl = videoId
+                ? `https://www.youtube.com/watch?v=${videoId}`
+                : query;
+        } else {
+            // Treat as a search query
+            const results = await play.search(query, { limit: 1 });
+            if (!results || results.length === 0) {
+                return interaction.editReply('❌ No results found for that search!');
+            }
+            songUrl = results[0].url;
+        }
 
         if (!queue) {
             const permissions = voiceChannel.permissionsFor(interaction.client.user);
@@ -46,7 +63,8 @@ module.exports = {
                 connection.subscribe(queue.player);
                 queues.set(interaction.guildId, queue);
             } catch (error) {
-                console.error(error);
+                console.error('Voice connection error:', error);
+                queues.delete(interaction.guildId);
                 return interaction.editReply('❌ Could not join your voice channel!');
             }
         } else {
@@ -57,7 +75,7 @@ module.exports = {
         }
 
         const song = {
-            url: query,
+            url: songUrl,
             requestedBy: interaction.user.tag,
         };
 
