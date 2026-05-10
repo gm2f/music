@@ -2,6 +2,7 @@ const play = require('play-dl');
 const { joinVoiceChannel } = require('@discordjs/voice');
 const { MusicQueue } = require('../utils/queue');
 const { spawn } = require('child_process');
+const PYTHON = '/home/runner/workspace/.pythonlibs/bin/python3';
 
 const YTDLP_ARGS = ['--extractor-args', 'youtube:player_client=android', '-q', '--no-warnings'];
 
