@@ -8,7 +8,7 @@ const commands = [
         options: [
             {
                 name: 'query',
-                description: 'YouTube URL or song name',
+                description: 'YouTube URL or song name to search for',
                 type: 3, // STRING type
                 required: true,
             },
