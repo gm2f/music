@@ -98,7 +98,7 @@ class MusicQueue {
 
         console.log(`🎵 Starting playback: ${song.title || song.url}`);
 
-        const ytdlp = spawn('python3', [
+        const ytdlp = spawn(PYTHON, [
             '-m', 'yt_dlp',
             ...YTDLP_ARGS,
             '-f', 'bestaudio',
@@ -106,7 +106,7 @@ class MusicQueue {
             song.url,
         ], { stdio: ['ignore', 'pipe', 'ignore'] });
 
-        const ffmpegProcess = spawn('ffmpeg', [
+        const ffmpegProcess = spawn(ffmpegPath, [
             '-i', 'pipe:0',
             '-c:a', 'libopus',
             '-f', 'ogg',
