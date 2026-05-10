@@ -8,8 +8,8 @@ const client = new Client({
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildVoiceStates,
         GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent
-    ]
+        GatewayIntentBits.MessageContent,
+    ],
 });
 
 // Store queues globally
@@ -24,70 +24,33 @@ for (const file of commandFiles) {
     const command = require(`./commands/${file}`);
     client.commands.set(command.name, command);
     console.log(`✅ Loaded command: ${command.name}`);
-    
-    // Load aliases
-    if (command.aliases) {
-        command.aliases.forEach(alias => {
-            client.commands.set(alias, command);
-        });
-    }
 }
 
-// Event: Ready
+// Ready event
 client.once('ready', () => {
     console.log(`🎵 ${client.user.tag} is online!`);
-    console.log(`📋 Commands loaded: ${client.commands.size}`);
-    console.log('--- Available Commands ---');
-    client.commands.forEach(cmd => {
-        if (cmd.name && !cmd.name.startsWith('!')) {
-            console.log(`!${cmd.name} - ${cmd.description}`);
-        }
-    });
+    console.log(`📋 Loaded ${client.commands.size} slash commands`);
 });
 
-// Event: Message Create
-client.on('messageCreate', async (message) => {
-    // Ignore bot messages and non-prefix messages
-    if (message.author.bot) return;
-    if (!message.content.startsWith('!')) return;
+// Interaction handler for slash commands
+client.on('interactionCreate', async (interaction) => {
+    if (!interaction.isCommand()) return;
     
-    const args = message.content.slice(1).trim().split(/ +/);
-    const commandName = args.shift().toLowerCase();
-    
-    const command = client.commands.get(commandName);
+    const command = client.commands.get(interaction.commandName);
     if (!command) return;
     
-    // Cooldown check (optional)
-    if (command.cooldown) {
-        if (!client.cooldowns) client.cooldowns = new Map();
-        const now = Date.now();
-        const timestamps = client.cooldowns;
-        const cooldownAmount = command.cooldown * 1000;
-        
-        if (timestamps.has(command.name)) {
-            const expirationTime = timestamps.get(command.name) + cooldownAmount;
-            if (now < expirationTime) {
-                const timeLeft = (expirationTime - now) / 1000;
-                return message.reply(`Please wait ${timeLeft.toFixed(1)} more seconds before using ${command.name}!`);
-            }
-        }
-        
-        timestamps.set(command.name, now);
-        setTimeout(() => timestamps.delete(command.name), cooldownAmount);
-    }
-    
-    // Execute command
     try {
-        await command.execute(message, args);
+        await command.execute(interaction);
     } catch (error) {
-        console.error(`Error executing ${command.name}:`, error);
-        message.reply('❌ An error occurred while executing that command!');
+        console.error(`Error executing ${interaction.commandName}:`, error);
+        const errorMessage = { content: '❌ There was an error executing this command!', ephemeral: true };
+        
+        if (interaction.deferred || interaction.replied) {
+            await interaction.followUp(errorMessage);
+        } else {
+            await interaction.reply(errorMessage);
+        }
     }
-});
-
-// Error handling for voice connections
-process.on('unhandledRejection', error => {
-    console.error('Unhandled promise rejection:', error);
 });
 
 // Login
